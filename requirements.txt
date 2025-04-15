@@ -1,5 +1,0 @@
-opencv-python
-numpy
-undetected-chromedriver
-python-chess
-pyautogui
