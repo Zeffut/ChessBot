@@ -7,7 +7,7 @@ import numpy as np
 import chess
 import chess.engine
 import pyautogui
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 debug = False
 debug_counter = 0
@@ -295,11 +295,13 @@ def perform_drag_and_drop_with_pyautogui(move, board_top_left, square_size, scal
         end_col = 7 - end_col
         end_row = 7 - end_row
     
+    # Calcul des coordonnées des cases
     start_x = board_top_left[0] + start_col * square_size + square_size // 2
     start_y = board_top_left[1] + start_row * square_size + square_size // 2
     end_x = board_top_left[0] + end_col * square_size + square_size // 2
     end_y = board_top_left[1] + end_row * square_size + square_size // 2
     
+    # Ajustement des coordonnées selon le facteur d'échelle
     start_x = int(start_x / scale_factor)
     start_y = int(start_y / scale_factor)
     end_x = int(end_x / scale_factor)
@@ -411,6 +413,125 @@ def detect_active_color(board_state):
     # Le roi le plus bas (row plus grand) indique que c'est à sa couleur de jouer
     return 'w' if white_king_pos > black_king_pos else 'b'
 
+def display_move_on_screen(move, board_top_left, square_size, scale_factor, active_color="w", root=None, canvas=None):
+    """
+    Affiche le coup suggéré directement sur l'écran dans une fenêtre transparente et click-through.
+    Si root et canvas sont fournis, met à jour l'affichage existant.
+    Sinon, crée une nouvelle fenêtre.
+    """
+    import tkinter as tk
+    from PIL import Image, ImageTk, ImageDraw
+
+    start_col = ord(move[0]) - ord('a')
+    start_row = 8 - int(move[1])
+    end_col = ord(move[2]) - ord('a')
+    end_row = 8 - int(move[3])
+    
+    # Si on joue les noirs, on inverse les coordonnées
+    if active_color == "b":
+        start_col = 7 - start_col
+        start_row = 7 - start_row
+        end_col = 7 - end_col
+        end_row = 7 - end_row
+    
+    # Calcul des coordonnées des cases
+    start_x = board_top_left[0] + start_col * square_size + square_size // 2
+    start_y = board_top_left[1] + start_row * square_size + square_size // 2
+    end_x = board_top_left[0] + end_col * square_size + square_size // 2
+    end_y = board_top_left[1] + end_row * square_size + square_size // 2
+    
+    # Ajustement des coordonnées selon le facteur d'échelle
+    start_x = int(start_x / scale_factor)
+    start_y = int(start_y / scale_factor)
+    end_x = int(end_x / scale_factor)
+    end_y = int(end_y / scale_factor)
+    
+    # Si la fenêtre n'existe pas encore, la créer
+    if root is None or canvas is None:
+        # Création de la fenêtre principale
+        root = tk.Tk()
+        root.attributes('-topmost', True)  # Toujours au-dessus
+        root.overrideredirect(True)  # Supprime la barre de titre
+        
+        # Configuration différente selon l'OS
+        if sys.platform == "win32":
+            root.attributes('-transparentcolor', 'black')  # Rendre le noir transparent
+            bg_color = 'black'
+            # Rendre la fenêtre click-through sous Windows
+            import ctypes
+            hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
+            style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)
+            ctypes.windll.user32.SetWindowLongW(hwnd, -20, style | 0x00000020)  # WS_EX_TRANSPARENT
+        else:  # macOS
+            # Configuration spécifique pour macOS
+            root.attributes('-alpha', 0.8)  # Fenêtre semi-transparente
+            root.attributes('-fullscreen', True)  # Mode plein écran
+            root.attributes('-type', 'utility')  # Type de fenêtre sans bordure
+            root.attributes('-transparent', True)  # Rendre la fenêtre transparente
+            root.attributes('-type', 'none')  # Type de fenêtre sans gestion des événements
+            
+            # Forcer la fenêtre à rester au-dessus
+            root.attributes('-topmost', True)
+            root.lift()
+            root.call('wm', 'attributes', '.', '-topmost', '1')
+            
+            # Désactiver la capture des événements de la souris
+            def ignore_event(event):
+                return "break"
+            
+            root.bind('<Button-1>', ignore_event)
+            root.bind('<Button-2>', ignore_event)
+            root.bind('<Button-3>', ignore_event)
+            root.bind('<B1-Motion>', ignore_event)
+            root.bind('<B2-Motion>', ignore_event)
+            root.bind('<B3-Motion>', ignore_event)
+            
+            # Désactiver la gestion des événements de la fenêtre
+            root.bind('<FocusIn>', lambda e: root.lift())
+            root.bind('<FocusOut>', lambda e: root.lift())
+            
+            bg_color = 'systemTransparent'  # Fond transparent
+        
+        # Obtention des dimensions de l'écran
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        
+        # Configuration de la fenêtre pour couvrir tout l'écran
+        root.geometry(f"{screen_width}x{screen_height}+0+0")
+        
+        # Création du canvas avec fond adapté selon l'OS
+        canvas = tk.Canvas(root, width=screen_width, height=screen_height, 
+                          highlightthickness=0, bg=bg_color)
+        canvas.pack(fill=tk.BOTH, expand=True)
+        
+        # Désactiver les événements de souris sur le canvas
+        if sys.platform != "win32":
+            canvas.bind('<Button-1>', ignore_event)
+            canvas.bind('<Button-2>', ignore_event)
+            canvas.bind('<Button-3>', ignore_event)
+            canvas.bind('<B1-Motion>', ignore_event)
+            canvas.bind('<B2-Motion>', ignore_event)
+            canvas.bind('<B3-Motion>', ignore_event)
+    
+    # Effacer le contenu précédent
+    canvas.delete("all")
+    
+    # Couleurs pour les cercles et la flèche
+    circle_color = "#00FF00"  # Vert
+    arrow_color = "#FF0000"   # Rouge
+    
+    # Dessin des cercles
+    canvas.create_oval(start_x-10, start_y-10, start_x+10, start_y+10, 
+                      fill=circle_color, outline="black", width=2)
+    canvas.create_oval(end_x-10, end_y-10, end_x+10, end_y+10, 
+                      fill=circle_color, outline="black", width=2)
+    
+    # Dessin de la flèche
+    canvas.create_line(start_x, start_y, end_x, end_y, 
+                      fill=arrow_color, width=3, arrow=tk.LAST)
+    
+    return root, canvas
+
 if __name__ == "__main__":
     ascii_art = [
         "  /$$$$$$  /$$",
@@ -436,10 +557,10 @@ if __name__ == "__main__":
     take_screenshot(screenshot_path)
     top_left, bottom_right = detect_chessboard(screenshot_path)
     crop_board(screenshot_path, top_left, bottom_right, "cropped_board.png")    
-    state_A = analyze_board_orb("cropped_board.png", "ressources/pieces")
+    state = analyze_board_orb("cropped_board.png", "ressources/pieces")
 
-    if state_A:
-        active_color = detect_active_color(state_A)
+    if state:
+        active_color = detect_active_color(state)
         if active_color == "w":
             previous_state = [
                 ['tourN', 'cavalierN', 'fouN', 'reineN', 'roiN', 'fouN', 'cavalierN', 'tourN'],
@@ -465,15 +586,14 @@ if __name__ == "__main__":
         print(f"Couleur active détectée : {'Blanc' if active_color == 'w' else 'Noir'}")
         if active_color == "w":
             print("Joueur blanc - coup joué dès le départ")
-            fen_A = board_state_to_fen(state_A, active_color)
+            fen_A = board_state_to_fen(state, active_color)
             best_move_A = get_best_move_from_stockfish(fen_A)
             if best_move_A is not None:
                 move_str = str(best_move_A)
-                explanation = explain_move(move_str, state_A)
+                explanation = explain_move(move_str, state)
                 print("Coup suggéré :", explanation)
                 square_size = (bottom_right[0] - top_left[0]) // 8
-                perform_drag_and_drop_with_pyautogui(move_str, top_left, square_size, scale_factor, button="left", active_color=active_color)
-                previous_state = update_board_state(state_A, move_str)
+                root, canvas = display_move_on_screen(move_str, top_left, square_size, scale_factor, active_color=active_color)
             print("Début de la partie...")
 
     while True:
@@ -489,24 +609,23 @@ if __name__ == "__main__":
             os.remove("cropped_board.png")
             os.remove("screenshot.png")
             sys.exit()
-        state_A = analyze_board_orb("cropped_board.png", "ressources/pieces")
-        if state_A:
+        state = analyze_board_orb("cropped_board.png", "ressources/pieces")
+        if state:
             if previous_state is None:
-                previous_state = state_A
-            elif state_A != previous_state:
-                diffs = diff_board_states(previous_state, state_A)
+                previous_state = state
+            elif state != previous_state:
+                diffs = diff_board_states(previous_state, state)
                 for pos, prev, curr in diffs:
                     row, col = pos
-                previous_state = state_A
-                fen_A = board_state_to_fen(state_A, active_color)
+                previous_state = state
+                fen_A = board_state_to_fen(state, active_color)
                 best_move_A = get_best_move_from_stockfish(fen_A)
                 if best_move_A is None:
                     print("Aucun coup suggéré par Stockfish.")
                     continue
                 move_str = str(best_move_A)
-                explanation = explain_move(move_str, state_A)
+                explanation = explain_move(move_str, state)
                 print("Coup suggéré :", explanation)
-                time.sleep(random.uniform(0.5, 15))
                 square_size = (bottom_right[0] - top_left[0]) // 8
-                perform_drag_and_drop_with_pyautogui(move_str, top_left, square_size, calculate_scale_factor(), button="left", active_color=active_color)
+                display_move_on_screen(move_str, top_left, square_size, calculate_scale_factor(), active_color=active_color, root=root, canvas=canvas)
                 previous_state = update_board_state(previous_state, move_str)
