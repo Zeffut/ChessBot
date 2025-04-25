@@ -8,6 +8,7 @@ import chess
 import chess.engine
 import pyautogui
 from PIL import Image
+from plyer import notification
 
 debug = False
 debug_counter = 0
@@ -360,6 +361,11 @@ def detect_win(cropped_board_path, win_image_path="ressources/win.png", threshol
                 res = cv2.matchTemplate(board_img, win_img, cv2.TM_CCOEFF_NORMED)
                 _, max_val, _, _ = cv2.minMaxLoc(res)
                 if max_val >= threshold:
+                    notification.notify(
+                        title="Victory!",
+                        message="Congratulations! You have won the game!",
+                        app_name="Chess Bot"
+                    )
                     return True, "victory"
             if win_bot_img is not None:
                 res = cv2.matchTemplate(board_img, win_bot_img, cv2.TM_CCOEFF_NORMED)
@@ -493,7 +499,7 @@ if __name__ == "__main__":
         if state_A:
             if previous_state is None:
                 previous_state = state_A
-            elif state_A != previous_state:
+            elif (active_color == "w" and state_A != previous_state) or (active_color == "b" and previous_state != state_A):
                 diffs = diff_board_states(previous_state, state_A)
                 for pos, prev, curr in diffs:
                     row, col = pos

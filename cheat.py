@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import chess
 import chess.engine
+import tkinter as tk
 import pyautogui
 from PIL import Image, ImageDraw, ImageFont
 
@@ -452,87 +453,46 @@ def display_move_on_screen(move, board_top_left, square_size, scale_factor, acti
         root = tk.Tk()
         root.attributes('-topmost', True)  # Toujours au-dessus
         root.overrideredirect(True)  # Supprime la barre de titre
-        
-        # Configuration différente selon l'OS
-        if sys.platform == "win32":
-            root.attributes('-transparentcolor', 'black')  # Rendre le noir transparent
-            bg_color = 'black'
-            # Rendre la fenêtre click-through sous Windows
-            import ctypes
-            hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
-            style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)
-            ctypes.windll.user32.SetWindowLongW(hwnd, -20, style | 0x00000020)  # WS_EX_TRANSPARENT
-        else:  # macOS
-            # Configuration spécifique pour macOS
-            root.attributes('-alpha', 0.8)  # Fenêtre semi-transparente
-            root.attributes('-fullscreen', True)  # Mode plein écran
-            root.attributes('-type', 'utility')  # Type de fenêtre sans bordure
-            root.attributes('-transparent', True)  # Rendre la fenêtre transparente
-            root.attributes('-type', 'none')  # Type de fenêtre sans gestion des événements
-            
-            # Forcer la fenêtre à rester au-dessus
-            root.attributes('-topmost', True)
-            root.lift()
-            root.call('wm', 'attributes', '.', '-topmost', '1')
-            
-            # Désactiver la capture des événements de la souris
-            def ignore_event(event):
-                return "break"
-            
-            root.bind('<Button-1>', ignore_event)
-            root.bind('<Button-2>', ignore_event)
-            root.bind('<Button-3>', ignore_event)
-            root.bind('<B1-Motion>', ignore_event)
-            root.bind('<B2-Motion>', ignore_event)
-            root.bind('<B3-Motion>', ignore_event)
-            
-            # Désactiver la gestion des événements de la fenêtre
-            root.bind('<FocusIn>', lambda e: root.lift())
-            root.bind('<FocusOut>', lambda e: root.lift())
-            
-            bg_color = 'systemTransparent'  # Fond transparent
-        
-        # Obtention des dimensions de l'écran
+
+        # Définir la couleur de fond et la couleur transparente
+        bg_color = 'black'  # Fond noir
+        root.attributes('-transparentcolor', bg_color)  # Rendre le noir transparent
+
+        # Configuration de la fenêtre
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
-        
-        # Configuration de la fenêtre pour couvrir tout l'écran
         root.geometry(f"{screen_width}x{screen_height}+0+0")
-        
-        # Création du canvas avec fond adapté selon l'OS
-        canvas = tk.Canvas(root, width=screen_width, height=screen_height, 
-                          highlightthickness=0, bg=bg_color)
+
+        # Création du canvas
+        canvas = tk.Canvas(root, width=screen_width, height=screen_height, highlightthickness=0, bg=bg_color)
         canvas.pack(fill=tk.BOTH, expand=True)
-        
-        # Désactiver les événements de souris sur le canvas
-        if sys.platform != "win32":
-            canvas.bind('<Button-1>', ignore_event)
-            canvas.bind('<Button-2>', ignore_event)
-            canvas.bind('<Button-3>', ignore_event)
-            canvas.bind('<B1-Motion>', ignore_event)
-            canvas.bind('<B2-Motion>', ignore_event)
-            canvas.bind('<B3-Motion>', ignore_event)
-    
+
+        # Ajout d'un bouton de fermeture pour le débogage
+        close_button = tk.Button(root, text="Fermer", command=root.destroy)
+        close_button.pack()
+
     # Effacer le contenu précédent
-    canvas.delete("all")
+    canvas.delete("all")  # Efface tous les anciens coups
     
     # Couleurs pour les cercles et la flèche
     circle_color = "#00FF00"  # Vert
     arrow_color = "#FF0000"   # Rouge
     
     # Dessin des cercles
-    canvas.create_oval(start_x-10, start_y-10, start_x+10, start_y+10, 
-                      fill=circle_color, outline="black", width=2)
-    canvas.create_oval(end_x-10, end_y-10, end_x+10, end_y+10, 
-                      fill=circle_color, outline="black", width=2)
+    canvas.create_oval(start_x-10, start_y-10, start_x+10, start_y+10, fill=circle_color, outline="black", width=2)
+    canvas.create_oval(end_x-10, end_y-10, end_x+10, end_y+10, fill=circle_color, outline="black", width=2)
     
     # Dessin de la flèche
-    canvas.create_line(start_x, start_y, end_x, end_y, 
-                      fill=arrow_color, width=3, arrow=tk.LAST)
+    canvas.create_line(start_x, start_y, end_x, end_y, fill=arrow_color, width=3, arrow=tk.LAST)
     
-    return root, canvas
+    # Mettre à jour l'interface
+    root.update()
+
+    return root, canvas  # Ajoutez cette ligne pour retourner root et canvas
 
 if __name__ == "__main__":
+    canvas = None
+    root = tk.Tk()
     ascii_art = [
         "  /$$$$$$  /$$",
         " /$$__  $$| $$",
@@ -593,7 +553,10 @@ if __name__ == "__main__":
                 explanation = explain_move(move_str, state)
                 print("Coup suggéré :", explanation)
                 square_size = (bottom_right[0] - top_left[0]) // 8
-                root, canvas = display_move_on_screen(move_str, top_left, square_size, scale_factor, active_color=active_color)
+                # Initialiser root et canvas avec un coup vide
+                root, canvas = display_move_on_screen("a1a1", top_left, square_size, scale_factor, active_color=active_color)
+                # Afficher le vrai coup
+                display_move_on_screen(move_str, top_left, square_size, scale_factor, active_color=active_color, root=root, canvas=canvas)
             print("Début de la partie...")
 
     while True:
