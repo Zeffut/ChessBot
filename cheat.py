@@ -515,7 +515,11 @@ if __name__ == "__main__":
 
     screenshot_path = "screenshot.png"
     take_screenshot(screenshot_path)
-    top_left, bottom_right = detect_chessboard(screenshot_path)
+    result = detect_chessboard(screenshot_path)
+    if result is None:
+        print("Error: Could not detect chessboard in screenshot. Please ensure the chessboard is visible and properly captured.")
+        exit(1)
+    top_left, bottom_right = result
     crop_board(screenshot_path, top_left, bottom_right, "cropped_board.png")    
     state = analyze_board_orb("cropped_board.png", "ressources/pieces")
 

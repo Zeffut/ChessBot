@@ -417,6 +417,25 @@ def detect_active_color(board_state):
     # Le roi le plus bas (row plus grand) indique que c'est à sa couleur de jouer
     return 'w' if white_king_pos > black_king_pos else 'b'
 
+def print_board_graphically(board_state):
+    """
+    Affiche l'échiquier dans le terminal de manière graphique.
+    """
+    piece_symbols = {
+        "roiB": "♚", "reineB": "♛", "tourB": "♜", "fouB": "♝", "cavalierB": "♞", "pionB": "♟",
+        "roiN": "♔", "reineN": "♕", "tourN": "♖", "fouN": "♗", "cavalierN": "♘", "pionN": "♙",
+        "empty": "."
+    }
+    print("  a b c d e f g h")
+    print(" +----------------")
+    for i, row in enumerate(board_state):
+        row_str = f"{8 - i}|"
+        for square in row:
+            row_str += f"{piece_symbols.get(square, '?')} "
+        print(row_str)
+    print(" +----------------")
+    print("  a b c d e f g h")
+
 if __name__ == "__main__":
     ascii_art = [
         "  /$$$$$$  /$$",
@@ -428,11 +447,13 @@ if __name__ == "__main__":
         "|  $$$$$$/| $$  | $$|  $$$$$$$ /$$$$$$$//$$$$$$$/",
         " \\______/ |__/  |__/ \\_______/|_______/|_______/",
         "                                                    ",
-        "                    by Zeffut                        "
+        "                    by Zeffut                        ",
+        "                                                   ",
+        "                                                   "
     ]
     
     for line in ascii_art:
-        print(line)
+       print(line)
 
     time.sleep(5)
     
@@ -443,8 +464,9 @@ if __name__ == "__main__":
     top_left, bottom_right = detect_chessboard(screenshot_path)
     crop_board(screenshot_path, top_left, bottom_right, "cropped_board.png")    
     state_A = analyze_board_orb("cropped_board.png", "ressources/pieces")
-
     if state_A:
+        print("État de l'échiquier analysé :")
+        print_board_graphically(state_A)  # Affiche l'échiquier graphiquement
         active_color = detect_active_color(state_A)
         if active_color == "w":
             previous_state = [
@@ -483,6 +505,7 @@ if __name__ == "__main__":
             print("Début de la partie...")
 
     while True:
+        time.sleep(random.uniform(0.5, 25))
         screenshot_path = "screenshot.png"
         take_screenshot(screenshot_path)
         crop_board(screenshot_path, top_left, bottom_right, "cropped_board.png")
@@ -511,8 +534,10 @@ if __name__ == "__main__":
                     continue
                 move_str = str(best_move_A)
                 explanation = explain_move(move_str, state_A)
+                for line in ascii_art:
+                    print(line)
+                print_board_graphically(state_A)
                 print("Coup suggéré :", explanation)
-                time.sleep(random.uniform(0.5, 15))
                 square_size = (bottom_right[0] - top_left[0]) // 8
                 perform_drag_and_drop_with_pyautogui(move_str, top_left, square_size, calculate_scale_factor(), button="left", active_color=active_color)
                 previous_state = update_board_state(previous_state, move_str)
